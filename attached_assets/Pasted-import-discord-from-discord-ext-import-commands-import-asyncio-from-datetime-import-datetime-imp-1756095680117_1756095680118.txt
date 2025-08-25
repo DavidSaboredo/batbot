@@ -1,0 +1,290 @@
+import discord
+from discord.ext import commands
+import asyncio
+from datetime import datetime
+import os
+from flask import Flask
+from threading import Thread
+
+# Configuración del bot
+intents = discord.Intents.default()
+intents.voice_states = True
+intents.guilds = True
+intents.members = True
+
+bot = commands.Bot(command_prefix='!', intents=intents)
+
+# Configuración - IDs de canales de voz válidos (cambiar por los IDs reales)
+# Nombres de canales a buscar:
+# 🍗PUBG FPP CANAL #1, 🍗PUBG FPP CANAL #2, 🍗PUBG TPP CANAL #1, 🍗PUBG TPP CANAL #2
+VALID_VOICE_CHANNELS = [
+    123456789012345678,  # 🍗PUBG FPP CANAL #1 - Cambiar por ID real
+    123456789012345679,  # 🍗PUBG FPP CANAL #2 - Cambiar por ID real
+    123456789012345680,  # 🍗PUBG TPP CANAL #1 - Cambiar por ID real
+    123456789012345681   # 🍗PUBG TPP CANAL #2 - Cambiar por ID real
+]
+
+# Sistema de roles progresivos basado en tiempo de conexión
+ROLE_SYSTEM = [
+    {
+        "name": "Murci-Casual 🍼",
+        "time_seconds": 1800,  # 30 minutos
+        "description": "El novato que recién entra, todavía se choca contra las paredes como un murciélago con GPS roto.",
+        "color": discord.Color.light_grey()
+    },
+    {
+        "name": "Ala Chueca 🦇",
+        "time_seconds": 7200,  # 2 horas
+        "description": "Ya sabe moverse, pero todavía vuela torcido y se manda sus fails en PUBG.",
+        "color": discord.Color.orange()
+    },
+    {
+        "name": "Eco-Legend 📡",
+        "time_seconds": 18000,  # 5 horas
+        "description": "Usa el eco como radar, empieza a carrear y sobrevivir más que el resto.",
+        "color": discord.Color.blue()
+    },
+    {
+        "name": "Dark Commander 🎖️",
+        "time_seconds": 36000,  # 10 horas
+        "description": "El maestro murciélago, líder supremo de la BatCompany, el que reparte headshots en la oscuridad.",
+        "color": discord.Color.purple()
+    }
+]
+
+# Diccionario para guardar las horas de entrada de los usuarios
+# Estructura: {user_id: datetime_object}
+user_join_times = {}
+
+# ===== SERVIDOR FLASK PARA REPLIT (MANTENER ACTIVO 24/7) =====
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "🦇 BatCompany Bot está activo y funcionando! 🎮"
+
+@app.route('/status')
+def status():
+    return {
+        "bot_status": "online",
+        "users_connected": len(user_join_times),
+        "monitored_channels": len(VALID_VOICE_CHANNELS),
+        "roles_system": len(ROLE_SYSTEM)
+    }
+
+def run_flask():
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    """Mantiene el bot activo en Replit"""
+    t = Thread(target=run_flask)
+    t.daemon = True
+    t.start()
+    print("🌐 Servidor Flask iniciado para mantener el bot activo en Replit")
+
+@bot.event
+async def on_ready():
+    """Evento que se ejecuta cuando el bot está listo"""
+    print(f'{bot.user} ha iniciado sesión y está listo!')
+    print(f'Canales de voz monitoreados: {VALID_VOICE_CHANNELS}')
+    print('\n=== SISTEMA DE ROLES PROGRESIVOS ===')
+    for i, role in enumerate(ROLE_SYSTEM, 1):
+        print(f'{i}. {role["name"]} - {role["time_seconds"]}s ({role["time_seconds"]/60:.0f} min)')
+        print(f'   → {role["description"]}')
+    print('=' * 40)
+
+@bot.event
+async def on_voice_state_update(member, before, after):
+    """Evento que se ejecuta cuando hay cambios en el estado de voz de un usuario"""
+    
+    # Verificar si el usuario se unió a un canal válido
+    if after.channel and after.channel.id in VALID_VOICE_CHANNELS:
+        # Usuario se unió a un canal válido
+        if member.id not in user_join_times:
+            user_join_times[member.id] = datetime.now()
+            print(f'{member.display_name} se unió al canal {after.channel.name} a las {user_join_times[member.id].strftime("%H:%M:%S")}')
+    
+    # Verificar si el usuario salió de un canal válido
+    if before.channel and before.channel.id in VALID_VOICE_CHANNELS:
+        # Usuario salió de un canal válido
+        if member.id in user_join_times:
+            # Calcular tiempo de conexión
+            join_time = user_join_times[member.id]
+            leave_time = datetime.now()
+            connection_duration = (leave_time - join_time).total_seconds()
+            
+            print(f'{member.display_name} salió del canal {before.channel.name} después de {connection_duration:.0f} segundos')
+            
+            # Verificar qué rol le corresponde según el tiempo de conexión
+            await check_and_assign_role(member, connection_duration)
+            
+            # Remover del diccionario
+            del user_join_times[member.id]
+    
+    # Caso especial: usuario se movió de un canal válido a otro canal válido
+    if (before.channel and before.channel.id in VALID_VOICE_CHANNELS and 
+        after.channel and after.channel.id in VALID_VOICE_CHANNELS and 
+        before.channel.id != after.channel.id):
+        # No hacer nada, mantener el tiempo de entrada original
+        print(f'{member.display_name} se movió de {before.channel.name} a {after.channel.name} (manteniendo tiempo de entrada)')
+
+async def check_and_assign_role(member, connection_duration):
+    """Verifica qué rol le corresponde al usuario según su tiempo de conexión"""
+    # Determinar el rol más alto que puede obtener
+    eligible_role = None
+    for role_config in reversed(ROLE_SYSTEM):  # Empezar por el rol más alto
+        if connection_duration >= role_config["time_seconds"]:
+            eligible_role = role_config
+            break
+    
+    if eligible_role:
+        await assign_progressive_role(member, eligible_role, connection_duration)
+    else:
+        min_time = ROLE_SYSTEM[0]["time_seconds"]
+        print(f'{member.display_name} no cumplió el tiempo mínimo ({connection_duration:.0f}/{min_time} segundos)')
+
+async def assign_progressive_role(member, role_config, connection_duration):
+    """Asigna el rol progresivo correspondiente al usuario"""
+    try:
+        role_name = role_config["name"]
+        
+        # Buscar el rol en el servidor
+        role = discord.utils.get(member.guild.roles, name=role_name)
+        
+        if not role:
+            # Si el rol no existe, crearlo
+            print(f'El rol "{role_name}" no existe. Creándolo...')
+            role = await member.guild.create_role(
+                name=role_name,
+                color=role_config["color"],
+                reason="Rol creado automáticamente por el sistema de roles progresivos"
+            )
+            print(f'Rol "{role_name}" creado exitosamente')
+        
+        # Verificar si el usuario ya tiene este rol o uno superior
+        current_role_level = get_user_role_level(member)
+        new_role_level = get_role_level(role_name)
+        
+        if current_role_level >= new_role_level:
+            print(f'{member.display_name} ya tiene el rol "{role_name}" o uno superior')
+            return
+        
+        # Remover roles anteriores del sistema progresivo
+        await remove_previous_roles(member)
+        
+        # Asignar el nuevo rol
+        await member.add_roles(role, reason=f'Tiempo acumulado: {connection_duration:.0f} segundos')
+        print(f'✅ Rol "{role_name}" asignado a {member.display_name} (tiempo: {connection_duration:.0f}s / {connection_duration/60:.1f}min)')
+        print(f'   → {role_config["description"]}')
+        
+    except discord.Forbidden:
+        print(f'❌ Error: No tengo permisos para asignar roles a {member.display_name}')
+    except discord.HTTPException as e:
+        print(f'❌ Error HTTP al asignar rol a {member.display_name}: {e}')
+    except Exception as e:
+        print(f'❌ Error inesperado al asignar rol a {member.display_name}: {e}')
+
+def get_role_level(role_name):
+    """Obtiene el nivel del rol en el sistema progresivo"""
+    for i, role_config in enumerate(ROLE_SYSTEM):
+        if role_config["name"] == role_name:
+            return i
+    return -1
+
+def get_user_role_level(member):
+    """Obtiene el nivel más alto del usuario en el sistema progresivo"""
+    max_level = -1
+    for role in member.roles:
+        level = get_role_level(role.name)
+        if level > max_level:
+            max_level = level
+    return max_level
+
+async def remove_previous_roles(member):
+    """Remueve roles anteriores del sistema progresivo"""
+    roles_to_remove = []
+    for role in member.roles:
+        if any(role.name == role_config["name"] for role_config in ROLE_SYSTEM):
+            roles_to_remove.append(role)
+    
+    if roles_to_remove:
+        await member.remove_roles(*roles_to_remove, reason="Actualización de rol progresivo")
+        print(f'Roles anteriores removidos de {member.display_name}: {", ".join([r.name for r in roles_to_remove])}')
+
+@bot.command(name='voice_stats')
+@commands.has_permissions(administrator=True)
+async def voice_stats(ctx):
+    """Comando para ver estadísticas de usuarios conectados (solo administradores)"""
+    if not user_join_times:
+        await ctx.send('No hay usuarios conectados en canales monitoreados.')
+        return
+    
+    stats_message = "**Usuarios actualmente en canales monitoreados:**\n"
+    current_time = datetime.now()
+    
+    for user_id, join_time in user_join_times.items():
+        user = bot.get_user(user_id)
+        if user:
+            duration = (current_time - join_time).total_seconds()
+            stats_message += f"• {user.display_name}: {duration:.0f} segundos ({duration/60:.1f} minutos)\n"
+    
+    await ctx.send(stats_message)
+
+@bot.command(name='config')
+@commands.has_permissions(administrator=True)
+async def show_config(ctx):
+    """Muestra la configuración actual del bot (solo administradores)"""
+    roles_info = "\n".join([
+        f"• **{role['name']}** - {role['time_seconds']}s ({role['time_seconds']/60:.0f} min)\n  → {role['description']}"
+        for role in ROLE_SYSTEM
+    ])
+    
+    config_message = f"""**🦇 Configuración del Bot BatCompany:**
+    
+**Canales PUBG monitoreados:**
+{chr(10).join([f'• Canal ID: {channel_id}' for channel_id in VALID_VOICE_CHANNELS])}
+
+**Sistema de Roles Progresivos:**
+{roles_info}
+
+**Usuarios conectados actualmente:** {len(user_join_times)}
+    """
+    await ctx.send(config_message)
+
+# Manejo de errores para comandos
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.MissingPermissions):
+        await ctx.send('❌ No tienes permisos para usar este comando.')
+    elif isinstance(error, commands.CommandNotFound):
+        pass  # Ignorar comandos no encontrados
+    else:
+        print(f'Error en comando: {error}')
+
+# Ejecutar el bot
+if __name__ == '__main__':
+    print("🦇 Iniciando BatCompany Discord Bot...")
+    print("\n📋 Configuración requerida:")
+    print("1. Cambiar los IDs de los canales PUBG en VALID_VOICE_CHANNELS")
+    print("   Canales: 🍗PUBG FPP CANAL #1, #2 y 🍗PUBG TPP CANAL #1, #2")
+    print("2. En Replit: Configurar TOKEN en Secrets")
+    print("3. Asegurarte de que el bot tenga permisos para gestionar roles")
+    print("\n🎖️ Sistema de Roles Progresivos:")
+    for role in ROLE_SYSTEM:
+        print(f"   {role['name']} - {role['time_seconds']/60:.0f} min")
+    print("-" * 60)
+    
+    # Iniciar servidor Flask para Replit (mantener activo 24/7)
+    keep_alive()
+    
+    # Obtener token desde variables de entorno (seguro para Replit)
+    token = os.environ.get('TOKEN')
+    if not token:
+        # Fallback para desarrollo local
+        token = "a6f4daabb68963e6c7c65beca88dbd63070d56357918117a4937f8df4e8f3690"
+        print("⚠️ Usando token local. Para Replit, configura TOKEN en Secrets.")
+    else:
+        print("✅ Token cargado desde variables de entorno (Replit Secrets)")
+    
+    # Ejecutar el bot
+    bot.run(token)
