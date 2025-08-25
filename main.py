@@ -17,11 +17,10 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 # Voice channel configuration - UPDATE THESE WITH ACTUAL CHANNEL IDs
 # To find channel IDs: Right-click on voice channel in Discord > Copy ID (Developer Mode must be enabled)
 VALID_VOICE_CHANNELS = [
-    # Add your actual Discord voice channel IDs here
-    # Example: 123456789012345678,  # 🍗PUBG FPP CANAL #1
-    # Example: 123456789012345679,  # 🍗PUBG FPP CANAL #2
-    # Example: 123456789012345680,  # 🍗PUBG TPP CANAL #1
-    # Example: 123456789012345681   # 🍗PUBG TPP CANAL #2
+    123456789012345678,  # 🍗PUBG FPP CANAL #1
+    123456789012345679,  # 🍗PUBG FPP CANAL #2  
+    123456789012345680,  # 🍗PUBG TPP CANAL #1
+    123456789012345681,  # 🍗PUBG TPP CANAL #2
 ]
 
 # Progressive role system based on voice connection time
