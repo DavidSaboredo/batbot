@@ -115,6 +115,37 @@ def keep_alive():
     t.start()
     print("🌐 Flask server started on port 5000 for Replit keepalive")
 
+async def scan_existing_users():
+    """Scan all monitored voice channels for users already connected"""
+    print('\n=== 🔍 SCANNING EXISTING VOICE ACTIVITY ===')
+    
+    total_users_found = 0
+    current_time = datetime.now()
+    
+    for guild in bot.guilds:
+        for channel_id in VALID_VOICE_CHANNELS:
+            channel = guild.get_channel(channel_id)
+            if channel and hasattr(channel, 'members'):
+                if channel.members:
+                    print(f'🎤 {channel.name}: {len(channel.members)} user(s) connected')
+                    for member in channel.members:
+                        if not member.bot:  # Ignore other bots
+                            # Start tracking these users from now
+                            if member.id not in user_join_times:
+                                user_join_times[member.id] = current_time
+                                bot_stats["total_sessions"] += 1
+                            print(f'   → {member.display_name} (tracking started)')
+                            total_users_found += 1
+                else:
+                    print(f'🔇 {channel.name}: Empty')
+    
+    if total_users_found == 0:
+        print('📊 No users currently in monitored voice channels')
+    else:
+        print(f'📊 Found {total_users_found} user(s) in monitored channels - now tracking!')
+    
+    print('=' * 50)
+
 # ===== DISCORD BOT EVENTS =====
 
 @bot.event
@@ -140,6 +171,9 @@ async def on_ready():
     # Warn if no channels configured
     if not VALID_VOICE_CHANNELS:
         print("⚠️  WARNING: No voice channels configured! Update VALID_VOICE_CHANNELS with actual channel IDs.")
+    
+    # Check for existing users in monitored voice channels
+    await scan_existing_users()
 
 @bot.event
 async def on_voice_state_update(member, before, after):
@@ -358,6 +392,14 @@ async def role_test(ctx, time_minutes: int = None):
     time_seconds = time_minutes * 60
     await check_and_assign_role(ctx.author, time_seconds)
     await ctx.send(f"✅ Role test completed for {time_minutes} minutes ({time_seconds} seconds)")
+
+@bot.command(name='scan')
+@commands.has_permissions(administrator=True)
+async def manual_scan(ctx):
+    """Manually scan voice channels for current activity (Admin only)"""
+    await ctx.send("🔍 Scanning voice channels...")
+    await scan_existing_users()
+    await ctx.send("✅ Voice channel scan completed! Check console for details.")
 
 # ===== ERROR HANDLING =====
 
