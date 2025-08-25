@@ -1,0 +1,220 @@
+/* BatCompany Discord Bot Styles */
+
+:root {
+    --bat-primary: #7289da;
+    --bat-secondary: #99aab5;
+    --bat-dark: #2c2f33;
+    --bat-darker: #23272a;
+    --bat-success: #43b581;
+    --bat-warning: #faa61a;
+    --bat-danger: #f04747;
+}
+
+body {
+    background: linear-gradient(135deg, var(--bat-dark) 0%, var(--bat-darker) 100%);
+    min-height: 100vh;
+    font-family: 'Whitney', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+/* Card Animations */
+.card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    border: none;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+}
+
+.fade-in {
+    animation: fadeInUp 0.6s ease-out forwards;
+    opacity: 0;
+    transform: translateY(20px);
+}
+
+@keyframes fadeInUp {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Status Indicator */
+.status-indicator .pulse {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+/* Role Cards */
+.role-card {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    transition: all 0.3s ease;
+    border: 2px solid transparent !important;
+}
+
+.role-card:hover {
+    border-color: var(--bat-primary) !important;
+    background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
+    transform: scale(1.02);
+}
+
+.role-icon {
+    font-size: 1.5rem;
+    width: 40px;
+    text-align: center;
+}
+
+/* Custom Bootstrap Override */
+.bg-primary {
+    background: linear-gradient(135deg, var(--bat-primary) 0%, #5b6eae 100%) !important;
+}
+
+.bg-success {
+    background: linear-gradient(135deg, var(--bat-success) 0%, #369870 100%) !important;
+}
+
+.bg-info {
+    background: linear-gradient(135deg, #17a2b8 0%, #138496 100%) !important;
+}
+
+.bg-warning {
+    background: linear-gradient(135deg, var(--bat-warning) 0%, #e0a800 100%) !important;
+}
+
+.bg-dark {
+    background: linear-gradient(135deg, var(--bat-dark) 0%, var(--bat-darker) 100%) !important;
+}
+
+/* Code blocks */
+code {
+    background-color: var(--bat-dark);
+    color: var(--bat-success);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+    .container {
+        padding: 0 15px;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    h1 {
+        font-size: 1.75rem;
+    }
+    
+    .role-card {
+        margin-bottom: 1rem;
+    }
+}
+
+/* Loading states */
+.loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid var(--bat-primary);
+    border-radius: 50%;
+    border-top-color: transparent;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Discord-like scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bat-darker);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--bat-secondary);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--bat-primary);
+}
+
+/* Utility classes */
+.text-bat-primary {
+    color: var(--bat-primary) !important;
+}
+
+.border-bat-primary {
+    border-color: var(--bat-primary) !important;
+}
+
+.bg-bat-dark {
+    background-color: var(--bat-dark) !important;
+}
+
+/* Enhanced button styles */
+.btn {
+    border-radius: 6px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Icon improvements */
+.fas, .fab {
+    margin-right: 4px;
+}
+
+.card-header .fas {
+    color: var(--bat-primary);
+}
+
+/* Progress bars for roles */
+.role-progress {
+    height: 4px;
+    background: var(--bat-secondary);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 8px;
+}
+
+.role-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--bat-primary), var(--bat-success));
+    transition: width 0.5s ease;
+}
