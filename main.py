@@ -57,6 +57,23 @@ ROLE_SYSTEM = [
 # Structure: {user_id: datetime_object}
 user_join_times = {}
 
+# Activity history tracking (last 50 events)
+activity_history = []
+MAX_HISTORY_SIZE = 50
+
+def add_activity_log(event_type, username, channel_name, details=""):
+    """Add an event to the activity history"""
+    activity_history.append({
+        "timestamp": datetime.now(),
+        "event_type": event_type,  # "join", "leave", "role_assigned"
+        "username": username,
+        "channel_name": channel_name,
+        "details": details
+    })
+    # Keep only last MAX_HISTORY_SIZE events
+    if len(activity_history) > MAX_HISTORY_SIZE:
+        activity_history.pop(0)
+
 # Bot statistics
 bot_stats = {
     "start_time": datetime.now(),
@@ -184,7 +201,9 @@ async def on_voice_state_update(member, before, after):
         if member.id not in user_join_times:
             user_join_times[member.id] = datetime.now()
             bot_stats["total_sessions"] += 1
-            print(f'🎤 {member.display_name} joined {after.channel.name} at {user_join_times[member.id].strftime("%H:%M:%S")}')
+            join_time_str = user_join_times[member.id].strftime("%H:%M:%S")
+            print(f'🎤 {member.display_name} joined {after.channel.name} at {join_time_str}')
+            add_activity_log("join", member.display_name, after.channel.name, f"at {join_time_str}")
     
     # User left a monitored voice channel
     if before.channel and before.channel.id in VALID_VOICE_CHANNELS:
@@ -196,6 +215,7 @@ async def on_voice_state_update(member, before, after):
             
             minutes = connection_duration / 60
             print(f'🚪 {member.display_name} left {before.channel.name} after {minutes:.1f} minutes')
+            add_activity_log("leave", member.display_name, before.channel.name, f"after {minutes:.1f} minutes")
             
             # Check and assign appropriate role
             await check_and_assign_role(member, connection_duration)
@@ -261,6 +281,7 @@ async def assign_progressive_role(member, role_config, connection_duration):
         minutes = connection_duration / 60
         print(f'🎖️  ROLE ASSIGNED: "{role_name}" to {member.display_name} ({minutes:.1f} minutes)')
         print(f'   → {role_config["description"]}')
+        add_activity_log("role_assigned", member.display_name, "Role System", f'"{role_name}" earned ({minutes:.1f} min)')
         
     except discord.Forbidden:
         print(f'❌ Missing permissions to assign roles to {member.display_name}')
@@ -400,6 +421,58 @@ async def manual_scan(ctx):
     await ctx.send("🔍 Scanning voice channels...")
     await scan_existing_users()
     await ctx.send("✅ Voice channel scan completed! Check console for details.")
+
+@bot.command(name='history')
+@commands.has_permissions(administrator=True)
+async def show_activity_history(ctx, limit: int = 10):
+    """Shows recent channel activity history (Admin only)"""
+    if not activity_history:
+        await ctx.send("📊 No activity history recorded yet.")
+        return
+    
+    # Limit to reasonable range
+    if limit > 25:
+        limit = 25
+    if limit < 1:
+        limit = 10
+        
+    embed = discord.Embed(
+        title="📜 Channel Activity History",
+        description=f"Last {min(limit, len(activity_history))} events:",
+        color=discord.Color.blue()
+    )
+    
+    # Show most recent events first
+    recent_events = activity_history[-limit:]
+    recent_events.reverse()
+    
+    for event in recent_events:
+        timestamp = event["timestamp"].strftime("%H:%M:%S")
+        event_type = event["event_type"]
+        username = event["username"]
+        channel = event["channel_name"]
+        details = event["details"]
+        
+        if event_type == "join":
+            icon = "🎤"
+            action = "joined"
+        elif event_type == "leave":
+            icon = "🚪"
+            action = "left"
+        elif event_type == "role_assigned":
+            icon = "🎖️"
+            action = "earned role in"
+        else:
+            icon = "📝"
+            action = "activity in"
+        
+        embed.add_field(
+            name=f"{icon} {timestamp}",
+            value=f"**{username}** {action} **{channel}** {details}",
+            inline=False
+        )
+    
+    await ctx.send(embed=embed)
 
 # ===== ERROR HANDLING =====
 
