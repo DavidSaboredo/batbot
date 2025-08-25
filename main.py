@@ -11,6 +11,7 @@ intents = discord.Intents.default()
 intents.voice_states = True
 intents.guilds = True
 intents.members = True
+intents.message_content = True  # Required for commands to work
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
