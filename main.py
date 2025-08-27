@@ -479,16 +479,14 @@ async def show_activity_history(ctx, limit: int = 10):
 
 @bot.event
 async def on_command_error(ctx, error):
-    """Handle bot command errors"""
+    """Handle command errors"""
     if isinstance(error, commands.MissingPermissions):
         await ctx.send('❌ You do not have permission to use this command.')
     elif isinstance(error, commands.CommandNotFound):
         pass  # Ignore unknown commands
-    elif isinstance(error, commands.BadArgument):
-        await ctx.send('❌ Invalid argument provided. Check command usage.')
     else:
         print(f'Command error: {error}')
-        await ctx.send('❌ An error occurred while executing the command.')
+        await ctx.send('❌ An error occurred while executing the command.')print("   3. Add value: MTQwOTM3NTMzMTgxMDU0NTc4Ng.Gcoe58.uDvk_JpEG72_NzZtAGJdSb-wwz6u7j_qUMQzHQ")
 
 @bot.event
 async def on_error(event, *args, **kwargs):
