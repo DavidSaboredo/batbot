@@ -4,6 +4,10 @@ import asyncio
 from datetime import datetime
 import os
 
+# DEBUG: Verificar si Railway está pasando el token
+token = os.getenv("DISCORD_TOKEN")
+print(f"DEBUG >> TOKEN recibido: {token[:5] + '...' if token else '❌ No encontrado'}")
+
 # Discord bot configuration
 TOKEN = os.getenv("DISCORD_TOKEN")
 
