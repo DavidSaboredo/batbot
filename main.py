@@ -493,7 +493,10 @@ if __name__ == '__main__':
     print("🦇 Starting BatCompany Discord Bot...")
     print("🔍 Debug: Checking environment variables...")
     
-    # Get Discord token from environment variables
+    # Force Railway to reload environment variables
+    import time
+    time.sleep(1)
+    
     DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
     print(f"🔍 Debug: DISCORD_TOKEN found: {'Yes' if DISCORD_TOKEN else 'No'}")
     
