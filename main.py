@@ -487,3 +487,38 @@ async def on_command_error(ctx, error):
     else:
         print(f'Command error: {error}')
         await ctx.send('❌ An error occurred while executing the command.')
+
+# Main execution
+if __name__ == '__main__':
+    print("🦇 Starting BatCompany Discord Bot...")
+    
+    # Get Discord token from environment variables
+    DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
+    
+    if not DISCORD_TOKEN:
+        print("❌ ERROR: DISCORD_TOKEN not found in environment variables!")
+        print("\n📋 Setup Instructions:")
+        print("   1. Go to Railway Dashboard")
+        print("   2. Select your project")
+        print("   3. Go to Variables tab")
+        print("   4. Add new variable:")
+        print("      - Key: DISCORD_TOKEN")
+        print("      - Value: [Your actual Discord bot token]")
+        print("\n🔗 Get your token at: https://discord.com/developers/applications")
+        exit(1)
+    
+    print("✅ Discord token loaded from environment variables")
+    
+    # Start Flask server in background
+    keep_alive()
+    
+    # Start the bot
+    try:
+        print("🚀 Starting bot...")
+        bot.run(DISCORD_TOKEN)
+    except discord.LoginFailure:
+        print("❌ Invalid Discord token! Please check your DISCORD_TOKEN variable.")
+        exit(1)
+    except Exception as e:
+        print(f"❌ Error starting bot: {e}")
+        exit(1)
