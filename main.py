@@ -493,6 +493,16 @@ if __name__ == '__main__':
     print("🦇 Starting BatCompany Discord Bot...")
     print("🔍 Debug: Checking environment variables...")
     
+    # Import our config helper
+    from config import get_discord_token
+    
+    DISCORD_TOKEN = get_discord_token()
+    print(f"🔍 Debug: DISCORD_TOKEN found: {'Yes' if DISCORD_TOKEN else 'No'}")
+    
+    if DISCORD_TOKEN:
+        print(f"🔍 Debug: Token length: {len(DISCORD_TOKEN)} characters")
+        print(f"🔍 Debug: Token starts with: {DISCORD_TOKEN[:10]}...")
+    
     # Force Railway to reload environment variables
     import time
     time.sleep(1)
