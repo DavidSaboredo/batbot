@@ -503,20 +503,12 @@ if __name__ == '__main__':
         print(f"🔍 Debug: Token length: {len(DISCORD_TOKEN)} characters")
         print(f"🔍 Debug: Token starts with: {DISCORD_TOKEN[:10]}...")
     
-    # Force Railway to reload environment variables
-    import time
-    time.sleep(1)
-    
-    # Use the robust function instead of os.getenv directly
-    DISCORD_TOKEN = get_discord_token()
-    print(f"🔍 Debug: DISCORD_TOKEN found (second check): {'Yes' if DISCORD_TOKEN else 'No'}")
-    
     if not DISCORD_TOKEN:
         print("❌ ERROR: DISCORD_TOKEN not found in environment variables!")
-        print("\n📋 Setup Instructions:")
-        print("   1. Go to Railway Dashboard")
-        print("   2. Select your project")
-        print("   3. Go to Variables tab")
+        print("\n📋 Setup Instructions for Render:")
+        print("   1. Go to Render Dashboard")
+        print("   2. Select your service")
+        print("   3. Go to Environment tab")
         print("   4. Add new variable:")
         print("      - Key: DISCORD_TOKEN")
         print("      - Value: [Your actual Discord bot token]")
