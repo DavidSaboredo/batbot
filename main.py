@@ -1,0 +1,561 @@
+import discord
+from discord.ext import commands
+import asyncio
+from datetime import datetime
+import os
+from flask import Flask, render_template, jsonify
+from threading import Thread
+
+# Discord bot configuration
+intents = discord.Intents.default()
+intents.voice_states = True
+intents.guilds = True
+intents.members = True
+intents.message_content = True  # Required for commands to work
+
+bot = commands.Bot(command_prefix='!', intents=intents)
+
+# Voice channel configuration - UPDATE THESE WITH ACTUAL CHANNEL IDs
+# To find channel IDs: Right-click on voice channel in Discord > Copy ID (Developer Mode must be enabled)
+VALID_VOICE_CHANNELS = [
+    1405053196443062336,  # BATCAVE
+    1405377739829022720,  # 🛡️[BAT-COMPANY] CLAN #1
+    380104919124017155,   # 🍗PUBG TPP CHANNEL #1
+    1405377302430220350,  # 🍗PUBG TPP CHANNEL #2
+    1405423954474172498,  # 🍗PUBG FPP CHANNEL #1
+    1405424126876975227,  # 🍗PUBG FPP CHANNEL #2
+]
+
+# Progressive role system based on voice connection time
+ROLE_SYSTEM = [
+    {
+        "name": "Murci-Casual 🍼",
+        "time_seconds": 1800,  # 30 minutes
+        "description": "El novato que recién entra, todavía se choca contra las paredes como un murciélago con GPS roto.",
+        "color": discord.Color.light_grey()
+    },
+    {
+        "name": "Ala Chueca 🦇",
+        "time_seconds": 7200,  # 2 hours
+        "description": "Ya sabe moverse, pero todavía vuela torcido y se manda sus fails en PUBG.",
+        "color": discord.Color.orange()
+    },
+    {
+        "name": "Eco-Legend 📡",
+        "time_seconds": 18000,  # 5 hours
+        "description": "Usa el eco como radar, empieza a carrear y sobrevivir más que el resto.",
+        "color": discord.Color.blue()
+    },
+    {
+        "name": "Dark Commander 🎖️",
+        "time_seconds": 36000,  # 10 hours
+        "description": "El maestro murciélago, líder supremo de la BatCompany, el que reparte headshots en la oscuridad.",
+        "color": discord.Color.purple()
+    }
+]
+
+# User session tracking
+# Structure: {user_id: datetime_object}
+user_join_times = {}
+
+# Activity history tracking (last 50 events)
+activity_history = []
+MAX_HISTORY_SIZE = 50
+
+def add_activity_log(event_type, username, channel_name, details=""):
+    """Add an event to the activity history"""
+    activity_history.append({
+        "timestamp": datetime.now(),
+        "event_type": event_type,  # "join", "leave", "role_assigned"
+        "username": username,
+        "channel_name": channel_name,
+        "details": details
+    })
+    # Keep only last MAX_HISTORY_SIZE events
+    if len(activity_history) > MAX_HISTORY_SIZE:
+        activity_history.pop(0)
+
+# Bot statistics
+bot_stats = {
+    "start_time": datetime.now(),
+    "roles_assigned": 0,
+    "total_sessions": 0,
+    "guilds_count": 0
+}
+
+# ===== FLASK WEB SERVER FOR REPLIT KEEPALIVE =====
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    """Main dashboard showing bot status"""
+    uptime = datetime.now() - bot_stats["start_time"]
+    uptime_str = f"{uptime.days}d {uptime.seconds//3600}h {(uptime.seconds//60)%60}m"
+    
+    return render_template('index.html', 
+                         bot_user=bot.user.name if bot.user else "Not connected",
+                         uptime=uptime_str,
+                         stats=bot_stats,
+                         users_connected=len(user_join_times),
+                         monitored_channels=len(VALID_VOICE_CHANNELS),
+                         role_system=ROLE_SYSTEM)
+
+@app.route('/api/status')
+def api_status():
+    """API endpoint for bot status"""
+    uptime = datetime.now() - bot_stats["start_time"]
+    
+    return jsonify({
+        "bot_status": "online" if bot.is_ready() else "offline",
+        "bot_user": bot.user.name if bot.user else None,
+        "uptime_seconds": uptime.total_seconds(),
+        "users_connected": len(user_join_times),
+        "monitored_channels": len(VALID_VOICE_CHANNELS),
+        "roles_system": len(ROLE_SYSTEM),
+        "stats": bot_stats,
+        "current_sessions": [
+            {
+                "user_id": user_id,
+                "duration_seconds": (datetime.now() - join_time).total_seconds()
+            }
+            for user_id, join_time in user_join_times.items()
+        ]
+    })
+
+def run_flask():
+    """Run Flask server for Replit keepalive"""
+    app.run(host='0.0.0.0', port=5000, debug=False)
+
+def keep_alive():
+    """Maintains bot active on Replit using Flask server"""
+    t = Thread(target=run_flask)
+    t.daemon = True
+    t.start()
+    print("🌐 Flask server started on port 5000 for Replit keepalive")
+
+async def scan_existing_users():
+    """Scan all monitored voice channels for users already connected"""
+    print('\n=== 🔍 SCANNING EXISTING VOICE ACTIVITY ===')
+    
+    total_users_found = 0
+    current_time = datetime.now()
+    
+    for guild in bot.guilds:
+        for channel_id in VALID_VOICE_CHANNELS:
+            channel = guild.get_channel(channel_id)
+            if channel and hasattr(channel, 'members'):
+                if channel.members:
+                    print(f'🎤 {channel.name}: {len(channel.members)} user(s) connected')
+                    for member in channel.members:
+                        if not member.bot:  # Ignore other bots
+                            # Start tracking these users from now
+                            if member.id not in user_join_times:
+                                user_join_times[member.id] = current_time
+                                bot_stats["total_sessions"] += 1
+                            print(f'   → {member.display_name} (tracking started)')
+                            total_users_found += 1
+                else:
+                    print(f'🔇 {channel.name}: Empty')
+    
+    if total_users_found == 0:
+        print('📊 No users currently in monitored voice channels')
+    else:
+        print(f'📊 Found {total_users_found} user(s) in monitored channels - now tracking!')
+    
+    print('=' * 50)
+
+# ===== DISCORD BOT EVENTS =====
+
+@bot.event
+async def on_ready():
+    """Event triggered when bot is ready and connected"""
+    print(f'✅ {bot.user} has logged in and is ready!')
+    print(f'📊 Connected to {len(bot.guilds)} server(s)')
+    print(f'🎤 Monitoring {len(VALID_VOICE_CHANNELS)} voice channel(s)')
+    
+    # Update bot stats
+    bot_stats["guilds_count"] = len(bot.guilds)
+    
+    # Display role system configuration
+    print('\n=== 🎖️ PROGRESSIVE ROLE SYSTEM ===')
+    for i, role in enumerate(ROLE_SYSTEM, 1):
+        minutes = role["time_seconds"] / 60
+        hours = minutes / 60
+        time_str = f"{hours:.1f}h" if hours >= 1 else f"{minutes:.0f}min"
+        print(f'{i}. {role["name"]} - {time_str}')
+        print(f'   → {role["description"]}')
+    print('=' * 50)
+    
+    # Warn if no channels configured
+    if not VALID_VOICE_CHANNELS:
+        print("⚠️  WARNING: No voice channels configured! Update VALID_VOICE_CHANNELS with actual channel IDs.")
+    
+    # Check for existing users in monitored voice channels
+    await scan_existing_users()
+
+@bot.event
+async def on_voice_state_update(member, before, after):
+    """Event triggered when user's voice state changes"""
+    
+    # User joined a monitored voice channel
+    if after.channel and after.channel.id in VALID_VOICE_CHANNELS:
+        if member.id not in user_join_times:
+            user_join_times[member.id] = datetime.now()
+            bot_stats["total_sessions"] += 1
+            join_time_str = user_join_times[member.id].strftime("%H:%M:%S")
+            print(f'🎤 {member.display_name} joined {after.channel.name} at {join_time_str}')
+            add_activity_log("join", member.display_name, after.channel.name, f"at {join_time_str}")
+    
+    # User left a monitored voice channel
+    if before.channel and before.channel.id in VALID_VOICE_CHANNELS:
+        if member.id in user_join_times:
+            # Calculate connection duration
+            join_time = user_join_times[member.id]
+            leave_time = datetime.now()
+            connection_duration = (leave_time - join_time).total_seconds()
+            
+            minutes = connection_duration / 60
+            print(f'🚪 {member.display_name} left {before.channel.name} after {minutes:.1f} minutes')
+            add_activity_log("leave", member.display_name, before.channel.name, f"after {minutes:.1f} minutes")
+            
+            # Check and assign appropriate role
+            await check_and_assign_role(member, connection_duration)
+            
+            # Remove from tracking
+            del user_join_times[member.id]
+    
+    # User moved between monitored channels (keep original join time)
+    if (before.channel and before.channel.id in VALID_VOICE_CHANNELS and 
+        after.channel and after.channel.id in VALID_VOICE_CHANNELS and 
+        before.channel.id != after.channel.id):
+        print(f'🔄 {member.display_name} moved from {before.channel.name} to {after.channel.name}')
+
+async def check_and_assign_role(member, connection_duration):
+    """Determines and assigns appropriate role based on connection time"""
+    # Find the highest eligible role
+    eligible_role = None
+    for role_config in reversed(ROLE_SYSTEM):  # Start with highest role
+        if connection_duration >= role_config["time_seconds"]:
+            eligible_role = role_config
+            break
+    
+    if eligible_role:
+        await assign_progressive_role(member, eligible_role, connection_duration)
+    else:
+        min_time = ROLE_SYSTEM[0]["time_seconds"]
+        min_minutes = min_time / 60
+        current_minutes = connection_duration / 60
+        print(f'⏱️  {member.display_name} needs {min_minutes:.0f} minutes for first role (current: {current_minutes:.1f}min)')
+
+async def assign_progressive_role(member, role_config, connection_duration):
+    """Assigns progressive role to user"""
+    try:
+        role_name = role_config["name"]
+        
+        # Find or create the role
+        role = discord.utils.get(member.guild.roles, name=role_name)
+        
+        if not role:
+            print(f'🔨 Creating role "{role_name}"...')
+            role = await member.guild.create_role(
+                name=role_name,
+                color=role_config["color"],
+                reason="Auto-created by BatCompany progressive role system"
+            )
+            print(f'✅ Role "{role_name}" created successfully')
+        
+        # Check if user already has this role or higher
+        current_level = get_user_role_level(member)
+        new_level = get_role_level(role_name)
+        
+        if current_level >= new_level:
+            print(f'📋 {member.display_name} already has "{role_name}" or higher')
+            return
+        
+        # Remove previous progressive roles
+        await remove_previous_roles(member)
+        
+        # Assign new role
+        await member.add_roles(role, reason=f'Progressive role: {connection_duration:.0f}s voice time')
+        
+        bot_stats["roles_assigned"] += 1
+        minutes = connection_duration / 60
+        print(f'🎖️  ROLE ASSIGNED: "{role_name}" to {member.display_name} ({minutes:.1f} minutes)')
+        print(f'   → {role_config["description"]}')
+        add_activity_log("role_assigned", member.display_name, "Role System", f'"{role_name}" earned ({minutes:.1f} min)')
+        
+    except discord.Forbidden:
+        print(f'❌ Missing permissions to assign roles to {member.display_name}')
+    except discord.HTTPException as e:
+        print(f'❌ HTTP error assigning role to {member.display_name}: {e}')
+    except Exception as e:
+        print(f'❌ Unexpected error assigning role to {member.display_name}: {e}')
+
+def get_role_level(role_name):
+    """Gets role level in progressive system"""
+    for i, role_config in enumerate(ROLE_SYSTEM):
+        if role_config["name"] == role_name:
+            return i
+    return -1
+
+def get_user_role_level(member):
+    """Gets user's highest progressive role level"""
+    max_level = -1
+    for role in member.roles:
+        level = get_role_level(role.name)
+        if level > max_level:
+            max_level = level
+    return max_level
+
+async def remove_previous_roles(member):
+    """Removes previous progressive roles from user"""
+    roles_to_remove = []
+    for role in member.roles:
+        if any(role.name == role_config["name"] for role_config in ROLE_SYSTEM):
+            roles_to_remove.append(role)
+    
+    if roles_to_remove:
+        await member.remove_roles(*roles_to_remove, reason="Progressive role update")
+        removed_names = [r.name for r in roles_to_remove]
+        print(f'🗑️  Removed old roles from {member.display_name}: {", ".join(removed_names)}')
+
+# ===== BOT COMMANDS =====
+
+@bot.command(name='voice_stats')
+@commands.has_permissions(administrator=True)
+async def voice_stats(ctx):
+    """Shows current voice channel statistics (Admin only)"""
+    if not user_join_times:
+        await ctx.send('📊 No users currently in monitored voice channels.')
+        return
+    
+    embed = discord.Embed(
+        title="🎤 Voice Channel Statistics",
+        description="Users currently in monitored PUBG channels:",
+        color=discord.Color.blue()
+    )
+    
+    current_time = datetime.now()
+    
+    for user_id, join_time in user_join_times.items():
+        user = bot.get_user(user_id)
+        if user:
+            duration = (current_time - join_time).total_seconds()
+            minutes = duration / 60
+            embed.add_field(
+                name=user.display_name,
+                value=f"{minutes:.1f} minutes",
+                inline=True
+            )
+    
+    await ctx.send(embed=embed)
+
+@bot.command(name='config')
+@commands.has_permissions(administrator=True)
+async def show_config(ctx):
+    """Shows bot configuration (Admin only)"""
+    embed = discord.Embed(
+        title="🦇 BatCompany Bot Configuration",
+        color=discord.Color.purple()
+    )
+    
+    # Monitored channels
+    if VALID_VOICE_CHANNELS:
+        channels_info = []
+        for channel_id in VALID_VOICE_CHANNELS:
+            channel = bot.get_channel(channel_id)
+            if channel:
+                channels_info.append(f"• {channel.name} (ID: {channel_id})")
+            else:
+                channels_info.append(f"• Unknown Channel (ID: {channel_id})")
+        embed.add_field(
+            name="🎤 Monitored PUBG Channels",
+            value="\n".join(channels_info) if channels_info else "None configured",
+            inline=False
+        )
+    else:
+        embed.add_field(
+            name="🎤 Monitored PUBG Channels",
+            value="⚠️ No channels configured",
+            inline=False
+        )
+    
+    # Role system
+    roles_info = []
+    for role in ROLE_SYSTEM:
+        minutes = role["time_seconds"] / 60
+        hours = minutes / 60
+        time_str = f"{hours:.1f}h" if hours >= 1 else f"{minutes:.0f}min"
+        roles_info.append(f"• **{role['name']}** - {time_str}")
+    
+    embed.add_field(
+        name="🎖️ Progressive Role System",
+        value="\n".join(roles_info),
+        inline=False
+    )
+    
+    # Current stats
+    embed.add_field(
+        name="📊 Current Stats",
+        value=f"Users connected: {len(user_join_times)}\nTotal sessions: {bot_stats['total_sessions']}\nRoles assigned: {bot_stats['roles_assigned']}",
+        inline=True
+    )
+    
+    await ctx.send(embed=embed)
+
+@bot.command(name='roletest')
+@commands.has_permissions(administrator=True)
+async def role_test(ctx, time_minutes: int = None):
+    """Test role assignment with custom time (Admin only)"""
+    if time_minutes is None:
+        await ctx.send("Usage: !roletest <minutes>\nExample: !roletest 60")
+        return
+    
+    time_seconds = time_minutes * 60
+    await check_and_assign_role(ctx.author, time_seconds)
+    await ctx.send(f"✅ Role test completed for {time_minutes} minutes ({time_seconds} seconds)")
+
+@bot.command(name='scan')
+@commands.has_permissions(administrator=True)
+async def manual_scan(ctx):
+    """Manually scan voice channels for current activity (Admin only)"""
+    await ctx.send("🔍 Scanning voice channels...")
+    await scan_existing_users()
+    await ctx.send("✅ Voice channel scan completed! Check console for details.")
+
+@bot.command(name='history')
+@commands.has_permissions(administrator=True)
+async def show_activity_history(ctx, limit: int = 10):
+    """Shows recent channel activity history (Admin only)"""
+    if not activity_history:
+        await ctx.send("📊 No activity history recorded yet.")
+        return
+    
+    # Limit to reasonable range
+    if limit > 25:
+        limit = 25
+    if limit < 1:
+        limit = 10
+        
+    embed = discord.Embed(
+        title="📜 Channel Activity History",
+        description=f"Last {min(limit, len(activity_history))} events:",
+        color=discord.Color.blue()
+    )
+    
+    # Show most recent events first
+    recent_events = activity_history[-limit:]
+    recent_events.reverse()
+    
+    for event in recent_events:
+        timestamp = event["timestamp"].strftime("%H:%M:%S")
+        event_type = event["event_type"]
+        username = event["username"]
+        channel = event["channel_name"]
+        details = event["details"]
+        
+        if event_type == "join":
+            icon = "🎤"
+            action = "joined"
+        elif event_type == "leave":
+            icon = "🚪"
+            action = "left"
+        elif event_type == "role_assigned":
+            icon = "🎖️"
+            action = "earned role in"
+        else:
+            icon = "📝"
+            action = "activity in"
+        
+        embed.add_field(
+            name=f"{icon} {timestamp}",
+            value=f"**{username}** {action} **{channel}** {details}",
+            inline=False
+        )
+    
+    await ctx.send(embed=embed)
+
+# ===== ERROR HANDLING =====
+
+@bot.event
+async def on_command_error(ctx, error):
+    """Handle command errors"""
+    if isinstance(error, commands.MissingPermissions):
+        await ctx.send('❌ You do not have permission to use this command.')
+    elif isinstance(error, commands.CommandNotFound):
+        pass  # Ignore unknown commands
+    else:
+        print(f'Command error: {error}')
+        await ctx.send('❌ An error occurred while executing the command.')
+
+# Main execution
+if __name__ == '__main__':
+    print("🦇 Starting BatCompany Discord Bot...")
+    print("🔍 Debug: Checking environment variables...")
+    
+    # Import our config helper
+    from config import get_discord_token
+    
+    DISCORD_TOKEN = get_discord_token()
+    print(f"🔍 Debug: DISCORD_TOKEN found: {'Yes' if DISCORD_TOKEN else 'No'}")
+    
+    if DISCORD_TOKEN:
+        print(f"🔍 Debug: Token length: {len(DISCORD_TOKEN)} characters")
+        print(f"🔍 Debug: Token starts with: {DISCORD_TOKEN[:10]}...")
+    
+    if not DISCORD_TOKEN:
+        print("❌ ERROR: DISCORD_TOKEN not found in environment variables!")
+        print("\n📋 Setup Instructions for Render:")
+        print("   1. Go to Render Dashboard")
+        print("   2. Select your service")
+        print("   3. Go to Environment tab")
+        print("   4. Add new variable:")
+        print("      - Key: DISCORD_TOKEN")
+        print("      - Value: [Your actual Discord bot token]")
+        print("\n🔗 Get your token at: https://discord.com/developers/applications")
+        exit(1)
+    
+    print("✅ Discord token loaded from environment variables")
+    print("🔍 Debug: Starting Flask server...")
+    
+    # Start Flask server in background
+    keep_alive()
+    print("🔍 Debug: Flask server started, now starting bot...")
+    
+    # Start the bot
+    try:
+        print("🚀 Starting bot...")
+        bot.run(DISCORD_TOKEN)
+    except discord.LoginFailure:
+        print("❌ Invalid Discord token! Please check your DISCORD_TOKEN variable.")
+        exit(1)
+    except Exception as e:
+        print(f"❌ Error starting bot: {e}")
+        exit(1)
+
+# Servidor web simple para Render
+from flask import Flask
+import threading
+import os
+
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "BatBot está funcionando!"
+
+@app.route('/health')
+def health():
+    return "OK"
+
+def run_web_server():
+    port = int(os.environ.get('PORT', 8080))
+    app.run(host='0.0.0.0', port=port)
+
+# Ejecutar servidor web en hilo separado
+if __name__ == "__main__":
+    web_thread = threading.Thread(target=run_web_server)
+    web_thread.daemon = True
+    web_thread.start()
+    
+    # El resto del código del bot continúa aquí...
