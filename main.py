@@ -491,9 +491,11 @@ async def on_command_error(ctx, error):
 # Main execution
 if __name__ == '__main__':
     print("🦇 Starting BatCompany Discord Bot...")
+    print("🔍 Debug: Checking environment variables...")
     
     # Get Discord token from environment variables
     DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
+    print(f"🔍 Debug: DISCORD_TOKEN found: {'Yes' if DISCORD_TOKEN else 'No'}")
     
     if not DISCORD_TOKEN:
         print("❌ ERROR: DISCORD_TOKEN not found in environment variables!")
@@ -508,9 +510,11 @@ if __name__ == '__main__':
         exit(1)
     
     print("✅ Discord token loaded from environment variables")
+    print("🔍 Debug: Starting Flask server...")
     
     # Start Flask server in background
     keep_alive()
+    print("🔍 Debug: Flask server started, now starting bot...")
     
     # Start the bot
     try:
