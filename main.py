@@ -524,7 +524,7 @@ if __name__ == '__main__':
         print("   Please add your Discord bot token to Railway Variables:")
         print("   1. Go to Railway Dashboard → Your Service → Variables")
         print("   2. Add key: DISCORD_TOKEN")
-        print("   3. Add value: a6f4daabb68963e6c7c65beca88dbd63070d56357918117a4937f8df4e8f3690")
+        print("   3. Add value: YOUR_REAL_DISCORD_BOT_TOKEN")
         exit(1)
     
     print("✅ Discord token loaded from environment variables")
