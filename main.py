@@ -501,7 +501,7 @@ if __name__ == '__main__':
     print("🦇 Starting BatCompany Discord Bot...")
     print("\n📋 SETUP CHECKLIST:")
     print("1. ✅ Create Discord Application at https://discord.com/developers/applications")
-    print("2. ✅ Copy bot token to Replit Secrets as 'DISCORD_TOKEN'")
+    print("2. ✅ Copy bot token to Railway Variables as 'DISCORD_TOKEN'")
     print("3. ✅ Enable Developer Mode in Discord and copy voice channel IDs")
     print("4. ✅ Update VALID_VOICE_CHANNELS in this file with actual IDs")
     print("5. ✅ Invite bot to server with 'Manage Roles' permission")
@@ -521,10 +521,10 @@ if __name__ == '__main__':
     token = os.getenv('DISCORD_TOKEN')
     if not token:
         print("❌ ERROR: DISCORD_TOKEN not found in environment variables!")
-        print("   Please add your Discord bot token to Replit Secrets:")
-        print("   1. Go to Replit Secrets (lock icon)")
+        print("   Please add your Discord bot token to Railway Variables:")
+        print("   1. Go to Railway Dashboard → Your Service → Variables")
         print("   2. Add key: DISCORD_TOKEN")
-        print("   3. Add value: your_bot_token_here")
+        print("   3. Add value: a6f4daabb68963e6c7c65beca88dbd63070d56357918117a4937f8df4e8f3690")
         exit(1)
     
     print("✅ Discord token loaded from environment variables")
@@ -534,6 +534,6 @@ if __name__ == '__main__':
     try:
         bot.run(token)
     except discord.LoginFailure:
-        print("❌ Invalid Discord token! Please check your DISCORD_TOKEN in Replit Secrets.")
+        print("❌ Invalid Discord token! Please check your DISCORD_TOKEN in Railway Variables.")
     except Exception as e:
         print(f"❌ Error starting bot: {e}")
