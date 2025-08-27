@@ -507,8 +507,9 @@ if __name__ == '__main__':
     import time
     time.sleep(1)
     
-    DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
-    print(f"🔍 Debug: DISCORD_TOKEN found: {'Yes' if DISCORD_TOKEN else 'No'}")
+    # Use the robust function instead of os.getenv directly
+    DISCORD_TOKEN = get_discord_token()
+    print(f"🔍 Debug: DISCORD_TOKEN found (second check): {'Yes' if DISCORD_TOKEN else 'No'}")
     
     if not DISCORD_TOKEN:
         print("❌ ERROR: DISCORD_TOKEN not found in environment variables!")
