@@ -3,10 +3,10 @@ from discord.ext import commands
 import asyncio
 from datetime import datetime
 import os
+from dotenv import load_dotenv  # Nueva línea
 
-# DEBUG: Verificar si Railway está pasando el token
-token = os.getenv("DISCORD_TOKEN")
-print(f"DEBUG >> TOKEN recibido: {token[:5] + '...' if token else '❌ No encontrado'}")
+# Cargar variables del archivo .env
+load_dotenv()  # Nueva línea
 
 # Discord bot configuration
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -378,7 +378,6 @@ if __name__ == '__main__':
         exit(1)
     
     print("✅ Discord token loaded from environment variables")
-    
     try:
         print("🚀 Starting bot...")
         bot.run(TOKEN)
