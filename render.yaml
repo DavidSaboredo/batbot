@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: batbot-discord
+    env: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: PORT
+        value: "8080"
