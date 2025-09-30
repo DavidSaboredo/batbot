@@ -49,13 +49,13 @@ ROLE_SYSTEM = [
     },
     {
         "name": "Murci-Veterano 🦇💪",
-        "time_seconds": 18000,  # 5 hours
+        "time_seconds": 28800,  # 8 hours
         "description": "El veterano que ya domina el vuelo nocturno y reparte headshots como caramelos.",
         "color": discord.Color.blue()
     },
     {
         "name": "Bat-Commander 🦇⚡",
-        "time_seconds": 36000,  # 10 hours
+        "time_seconds": 72000,  # 20 hours
         "description": "El maestro murciélago, líder supremo de la BatCompany, el que reparte headshots en la oscuridad.",
         "color": discord.Color.purple()
     }

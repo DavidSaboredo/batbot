@@ -24,8 +24,8 @@ A Discord bot with progressive role system and cumulative time tracking for PUBG
 |------|---------------|--------------|
 | Murci-Casual 🍼 | 30 minutes | The newbie who just entered, still crashes into walls like a bat with broken GPS. |
 | Ala Chueca 🦇 | 2 hours | Already knows how to move, but still flies crooked and makes fails in PUBG. |
-| Eco-Legend 📡 | 5 hours | Uses echo as radar, starts to carry and survive more than the rest. |
-| Dark Commander 🎖️ | 10 hours | The master bat, supreme leader of BatCompany, the one who distributes headshots in the dark. |
+| Murci-Veterano 🦇💪 | 8 hours | The veteran who already masters night flight and distributes headshots like candy. |
+| Bat-Commander 🦇⚡ | 20 hours | The master bat, supreme leader of BatCompany, the one who distributes headshots in the dark. |
 
 ### 🤖 Commands
 
@@ -104,8 +104,8 @@ Un bot de Discord con sistema de roles progresivos y seguimiento de tiempo acumu
 |-----|------------------|--------------|
 | Murci-Casual 🍼 | 30 minutos | El novato que acaba de entrar, todavía se estrella contra las paredes como un murciélago con GPS roto. |
 | Ala Chueca 🦇 | 2 horas | Ya sabe moverse, pero aún vuela torcido y comete fallos en PUBG. |
-| Eco-Legend 📡 | 5 horas | Usa el eco como radar, comienza a cargar y sobrevivir más que el resto. |
-| Dark Commander 🎖️ | 10 horas | El murciélago maestro, líder supremo de BatCompany, el que reparte headshots en la oscuridad. |
+| Murci-Veterano 🦇💪 | 8 horas | El veterano que ya domina el vuelo nocturno y reparte headshots como caramelos. |
+| Bat-Commander 🦇⚡ | 20 horas | El murciélago maestro, líder supremo de BatCompany, el que reparte headshots en la oscuridad. |
 
 ### 🤖 Comandos
 
