@@ -43,19 +43,19 @@ ROLE_SYSTEM = [
     },
     {
         "name": "Ala Chueca 🦇",
-        "time_seconds": 7200,  # 2 hours
+        "time_seconds": 7200,  # 2 hours = 120 minutes
         "description": "Ya sabe moverse, pero todavía vuela torcido y se manda sus fails en PUBG.",
         "color": discord.Color.orange()
     },
     {
         "name": "Murci-Veterano 🦇💪",
-        "time_seconds": 28800,  # 8 hours
+        "time_seconds": 28800,  # 8 hours = 480 minutes
         "description": "El veterano que ya domina el vuelo nocturno y reparte headshots como caramelos.",
         "color": discord.Color.blue()
     },
     {
         "name": "Bat-Commander 🦇⚡",
-        "time_seconds": 72000,  # 20 hours
+        "time_seconds": 72000,  # 20 hours = 1200 minutes
         "description": "El maestro murciélago, líder supremo de la BatCompany, el que reparte headshots en la oscuridad.",
         "color": discord.Color.purple()
     }
