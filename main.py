@@ -1148,9 +1148,7 @@ MAPS_URL = "https://raw.githubusercontent.com/DavidSaboredo/batbot/mejoras/sqlit
 # mapa: (texto corto, imagen o None)
 LLAVES = {
     "Erangel": ("Unas 15 salas secretas. La llave es botín al azar y abre una sola sala (se destruye al usarla).", "erangel.png"),
-    "Miramar": ("Las llaves caen al azar en edificios y complejos. Todavía no tengo el mapa con las salas de Miramar.", None),
     "Taego": ("Unas 12-13 salas de seguridad (el mapa puede variar desde la actualización 42.2).", "taego.png"),
-    "Rondo": ("Puertas de seguridad con tarjeta de acceso. Todavía no tengo el mapa con las salas de Rondo.", None),
     "Vikendi": ("Llaves de seguridad: salen de las cajas amarillas de los Lab Camps. Las salas con palanca no necesitan llave.", "vikendi.png"),
 }
 
