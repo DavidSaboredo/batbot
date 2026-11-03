@@ -1216,6 +1216,7 @@ LLAVES = {
     "Erangel": (
         "Hay unas 15 salas secretas. La llave es botín al azar en todo el mapa y cada llave abre una sola sala (se destruye al usarla).",
         "https://www.ggrecon.com/guides/pubg-erangel-secret-rooms-keys/",
+        "https://www.ggrecon.com/media/0ornuv51/pubg-erangel-secret-rooms-locations.jpg?format=webp",
     ),
     "Miramar": (
         "Las llaves caen al azar en edificios y complejos del mapa. Mirá el mapa interactivo con la ubicación de las salas.",
@@ -1224,6 +1225,7 @@ LLAVES = {
     "Taego": (
         "Entre 12 y 15 salas secretas (las guías no coinciden). Se reformaron en la actualización 42.2.",
         "https://www.ggrecon.com/guides/pubg-taego-secret-rooms-keys/",
+        "https://www.ggrecon.com/media/1rpl2gei/pubg-taego-security-room-key-locations.jpg?format=webp",
     ),
     "Rondo": (
         "Usa puertas de seguridad con tarjeta de acceso. Se reformaron en la actualización 42.2.",
@@ -1232,6 +1234,7 @@ LLAVES = {
     "Vikendi": (
         "Usa llaves de seguridad: la mejor forma de conseguirlas es abrir las cajas amarillas de suministro dentro de los Lab Camps.",
         "https://www.ggrecon.com/guides/pubg-vikendi-security-rooms/",
+        "https://www.ggrecon.com/media/314njzkh/pubg-vikendi-security-room-key-locations.jpg?format=webp",
     ),
 }
 
@@ -1240,10 +1243,15 @@ LLAVES = {
 @app_commands.describe(mapa="Mapa")
 @app_commands.choices(mapa=[app_commands.Choice(name=n, value=n) for n in LLAVES])
 async def llaves(interaction: discord.Interaction, mapa: app_commands.Choice[str]):
-    text, link = LLAVES[mapa.value]
+    text, link, *image = LLAVES[mapa.value]
     embed = discord.Embed(title=f"🔑 Salas secretas — {mapa.value}", description=text, color=discord.Color.dark_gold())
+    if image:
+        embed.description += "\n\n🔴 Los círculos rojos del mapa marcan dónde están las salas (casas con puerta secreta, sótanos, etc.)."
+        embed.set_image(url=image[0])
+    else:
+        embed.description += "\n\nPara este mapa no hay una imagen con las ubicaciones; la guía de abajo las tiene."
     embed.add_field(name="🗺️ Guía con ubicaciones", value=f"[Abrir guía]({link})", inline=False)
-    embed.set_footer(text="Las llaves aparecen solo en partidas normales (no en ranked). Datos de guías de la comunidad: pueden cambiar con los parches.")
+    embed.set_footer(text="Las llaves aparecen solo en partidas normales (no en ranked). Mapa: GGRecon. Puede estar desactualizado: los parches cambian las salas.")
     await interaction.response.send_message(embed=embed)
 
 
