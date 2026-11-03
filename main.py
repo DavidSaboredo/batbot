@@ -1043,7 +1043,7 @@ async def respaldo(interaction: discord.Interaction):
     await send_backup(lambda file: interaction.followup.send("💾 Respaldo de la base:", file=file, ephemeral=True))
 
 
-# ---------- Comunidad: rol semanal, bienvenida, cumpleaños, racha, squad ----------
+# ---------- Comunidad: rol semanal, bienvenida, cumpleaños, racha ----------
 
 async def update_top_role(guild):
     """Le da el rol de más activo a quien lideró los últimos 7 días y se lo saca a los demás."""
@@ -1077,7 +1077,7 @@ async def on_member_join(member):
         description=(
             f"{member.mention}, qué bueno que estés acá.\n\n"
             f"Pasá tiempo en los canales de voz y vas a ir ganando rangos solo:\n{roles}\n\n"
-            "Probá `/tiempo` para ver tus horas y `/buscarsquad` para armar equipo."
+            "Probá `/tiempo` para ver tus horas."
         ),
         color=discord.Color.gold(),
     )
@@ -1139,75 +1139,6 @@ async def racha(interaction: discord.Interaction, usuario: discord.Member = None
     await interaction.response.send_message(
         f"{fire} **{target.display_name}** — racha actual: **{current}** {'día' if current == 1 else 'días'} seguidos · mejor racha: **{best}**"
     )
-
-
-class SquadView(discord.ui.View):
-    def __init__(self, host, game, size):
-        super().__init__(timeout=2 * 3600)
-        self.game = game
-        self.size = size
-        self.members = [host]
-        self.message = None
-
-    def build_embed(self):
-        missing = self.size - len(self.members)
-        names = "\n".join(f"• {m.display_name}" for m in self.members)
-        if missing > 0:
-            title = f"🎮 {self.game}: faltan {missing} para completar el squad de {self.size}"
-            color = discord.Color.orange()
-        else:
-            title = f"✅ {self.game}: ¡squad completo!"
-            color = discord.Color.green()
-        return discord.Embed(title=title, description=names, color=color)
-
-    async def refresh(self, interaction):
-        full = len(self.members) >= self.size
-        if full:
-            for item in self.children:
-                item.disabled = True
-        await interaction.response.edit_message(embed=self.build_embed(), view=self)
-        if full:
-            await interaction.followup.send("🦇 ¡Squad completo! " + " ".join(m.mention for m in self.members))
-            self.stop()
-
-    @discord.ui.button(label="Me sumo", style=discord.ButtonStyle.success, emoji="🙋")
-    async def join(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user in self.members:
-            await interaction.response.send_message("Ya estás en el squad.", ephemeral=True)
-            return
-        self.members.append(interaction.user)
-        await self.refresh(interaction)
-
-    @discord.ui.button(label="Salir", style=discord.ButtonStyle.secondary)
-    async def leave(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user not in self.members:
-            await interaction.response.send_message("No estás en el squad.", ephemeral=True)
-            return
-        self.members.remove(interaction.user)
-        if not self.members:
-            for item in self.children:
-                item.disabled = True
-            await interaction.response.edit_message(content="❌ Squad cancelado.", embed=None, view=self)
-            self.stop()
-            return
-        await self.refresh(interaction)
-
-    async def on_timeout(self):
-        for item in self.children:
-            item.disabled = True
-        if self.message:
-            try:
-                await self.message.edit(view=self)
-            except discord.HTTPException:
-                pass
-
-
-@bot.tree.command(name="buscarsquad", description="Armá un squad: la gente se suma con un botón")
-@app_commands.describe(juego="A qué van a jugar", tamano="Cuántos son en total (por defecto 4)")
-async def buscarsquad(interaction: discord.Interaction, juego: str = "PUBG", tamano: app_commands.Range[int, 2, 10] = 4):
-    view = SquadView(interaction.user, juego[:40], tamano)
-    await interaction.response.send_message(embed=view.build_embed(), view=view)
-    view.message = await interaction.original_response()
 
 
 # ---------- PUBG: llaves, mapas, drop y tips ----------
