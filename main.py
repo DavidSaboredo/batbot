@@ -1148,7 +1148,12 @@ MAPS_URL = "https://raw.githubusercontent.com/DavidSaboredo/batbot/mejoras/sqlit
 # mapa: (texto corto, imagen o None)
 LLAVES = {
     "Erangel": ("Unas 15 salas secretas. La llave es botín al azar y abre una sola sala (se destruye al usarla).", "erangel.png"),
+    "Miramar": ("Unas 17-18 salas secretas. La llave sale como botín al azar y abre una sola sala.", "miramar.jpg"),
+    "Taego": ("Unas 14-15 salas secretas. La llave sale como botín al azar. Desde la actualización 42.2 cambió el botín de adentro.", "taego.jpg"),
+    "Rondo": ("Unas 15 salas de seguridad repartidas por todo el mapa.", "rondo.jpg"),
     "Vikendi": ("Llaves de seguridad: salen de las cajas amarillas de los Lab Camps. Las salas con palanca no necesitan llave.", "vikendi.png"),
+    "Deston": ("Salas de seguridad, marcadas en rosa. Se abren con llave o tarjeta de seguridad.", "deston.jpg"),
+    "Paramo": ("Unas 8-9 salas secretas. La llave sale como botín al azar.", "paramo.jpg"),
 }
 
 
@@ -1160,7 +1165,7 @@ async def llaves(interaction: discord.Interaction, mapa: app_commands.Choice[str
     embed = discord.Embed(title=f"🔑 Salas secretas — {mapa.value}", description=text, color=discord.Color.dark_gold())
     if image:
         embed.set_image(url=f"{MAPS_URL}/{image}")
-    embed.set_footer(text="Solo en partidas normales (no ranked) · Base de mapas: GGRecon")
+    embed.set_footer(text="Posiciones aproximadas: pueden cambiar con las actualizaciones")
     await interaction.response.send_message(embed=embed)
 
 
