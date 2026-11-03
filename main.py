@@ -1143,46 +1143,27 @@ async def racha(interaction: discord.Interaction, usuario: discord.Member = None
 
 # ---------- PUBG: llaves, mapas, drop y tips ----------
 
+MAPS_URL = "https://raw.githubusercontent.com/DavidSaboredo/batbot/mejoras/sqlite-slash/maps"
+
+# mapa: (texto corto, imagen o None)
 LLAVES = {
-    "Erangel": (
-        "Hay unas 15 salas secretas. La llave es botín al azar en todo el mapa y cada llave abre una sola sala (se destruye al usarla).",
-        "https://www.ggrecon.com/guides/pubg-erangel-secret-rooms-keys/",
-        "https://www.ggrecon.com/media/0ornuv51/pubg-erangel-secret-rooms-locations.jpg?format=webp",
-    ),
-    "Miramar": (
-        "Las llaves caen al azar en edificios y complejos del mapa. Mirá el mapa interactivo con la ubicación de las salas.",
-        "https://www.gamemaps.net/game/pubg/maps/pubg_miramar_map/categories/648eea82278149095c6c075b",
-    ),
-    "Taego": (
-        "Entre 12 y 15 salas secretas (las guías no coinciden). Se reformaron en la actualización 42.2.",
-        "https://www.ggrecon.com/guides/pubg-taego-secret-rooms-keys/",
-        "https://www.ggrecon.com/media/1rpl2gei/pubg-taego-security-room-key-locations.jpg?format=webp",
-    ),
-    "Rondo": (
-        "Usa puertas de seguridad con tarjeta de acceso. Se reformaron en la actualización 42.2.",
-        "https://www.playnews.gg/en/guides/pubg-battlegrounds-the-guide-to-secret-rooms-on-taego-and-rondo-after-42-2-keys-jars-loot",
-    ),
-    "Vikendi": (
-        "Usa llaves de seguridad: la mejor forma de conseguirlas es abrir las cajas amarillas de suministro dentro de los Lab Camps.",
-        "https://www.ggrecon.com/guides/pubg-vikendi-security-rooms/",
-        "https://www.ggrecon.com/media/314njzkh/pubg-vikendi-security-room-key-locations.jpg?format=webp",
-    ),
+    "Erangel": ("Unas 15 salas secretas. La llave es botín al azar y abre una sola sala (se destruye al usarla).", "erangel.png"),
+    "Miramar": ("Las llaves caen al azar en edificios y complejos. Todavía no tengo el mapa con las salas de Miramar.", None),
+    "Taego": ("Unas 12-13 salas de seguridad (el mapa puede variar desde la actualización 42.2).", "taego.png"),
+    "Rondo": ("Puertas de seguridad con tarjeta de acceso. Todavía no tengo el mapa con las salas de Rondo.", None),
+    "Vikendi": ("Llaves de seguridad: salen de las cajas amarillas de los Lab Camps. Las salas con palanca no necesitan llave.", "vikendi.png"),
 }
 
 
-@bot.tree.command(name="llaves", description="Salas secretas de PUBG: cómo conseguir la llave y dónde mirar")
+@bot.tree.command(name="llaves", description="Mapa con las salas secretas de PUBG")
 @app_commands.describe(mapa="Mapa")
 @app_commands.choices(mapa=[app_commands.Choice(name=n, value=n) for n in LLAVES])
 async def llaves(interaction: discord.Interaction, mapa: app_commands.Choice[str]):
-    text, link, *image = LLAVES[mapa.value]
+    text, image = LLAVES[mapa.value]
     embed = discord.Embed(title=f"🔑 Salas secretas — {mapa.value}", description=text, color=discord.Color.dark_gold())
     if image:
-        embed.description += "\n\n🔴 Los círculos rojos del mapa marcan dónde están las salas (casas con puerta secreta, sótanos, etc.)."
-        embed.set_image(url=image[0])
-    else:
-        embed.description += "\n\nPara este mapa no hay una imagen con las ubicaciones; la guía de abajo las tiene."
-    embed.add_field(name="🗺️ Guía con ubicaciones", value=f"[Abrir guía]({link})", inline=False)
-    embed.set_footer(text="Las llaves aparecen solo en partidas normales (no en ranked). Mapa: GGRecon. Puede estar desactualizado: los parches cambian las salas.")
+        embed.set_image(url=f"{MAPS_URL}/{image}")
+    embed.set_footer(text="Solo en partidas normales (no ranked) · Base de mapas: GGRecon")
     await interaction.response.send_message(embed=embed)
 
 
