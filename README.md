@@ -13,7 +13,7 @@ A Discord bot with progressive role system and cumulative time tracking for PUBG
 - **Voice Channel Monitoring**: Tracks user activity in specified PUBG voice channels
 - **Progressive Role System**: Automatically assigns roles based on cumulative connection time
 - **Cumulative Time Tracking**: Saves and accumulates time across bot restarts and sessions
-- **Data Persistence**: User progress is saved in JSON format and persists between sessions
+- **Data Persistence**: User progress is saved in SQLite and persists between sessions
 - **Admin Commands**: Statistics, configuration, and management commands
 - **User Commands**: Check personal time and reset progress
 - **24/7 Uptime**: Deployed on Bot-Hosting.net for continuous operation
@@ -27,18 +27,26 @@ A Discord bot with progressive role system and cumulative time tracking for PUBG
 | Murci-Veterano 🦇💪 | 8 hours | The veteran who already masters night flight and distributes headshots like candy. |
 | Bat-Commander 🦇⚡ | 20 hours | The master bat, supreme leader of BatCompany, the one who distributes headshots in the dark. |
 
-### 🤖 Commands
+### 🤖 Commands (slash commands)
 
-#### User Commands
-- `!mytime` - Check your accumulated voice channel time and current role
-- `!resettime` - Reset your accumulated time (requires confirmation)
+#### Everyone
+- `/tiempo [usuario]` - Accumulated voice time, current session and next role
+- `/ranking [periodo]` - Top 10 by voice time: all-time, last 7 days or last 30 days
 
-#### Admin Commands
-- `!voice_stats` - Display voice channel statistics for all users
-- `!config` - Show current bot configuration
-- `!roletest @user` - Test role assignment for a specific user
-- `!scan` - Scan and assign roles to all current voice channel users
-- `!history @user` - Show activity history for a specific user
+#### Admins
+- `/canal` - Choose the channel for free games, PUBG news and new-role announcements
+- `/estadisticas` - Bot and voice statistics
+- `/configuracion` - Monitored channels and role thresholds
+- `/resettiempo @usuario` - Reset a user's time
+- `/historial [cantidad]` - Recent activity
+
+### 🎁 Free games and PUBG news
+
+Every 30 minutes the bot posts new free games (Epic Games, Steam, GOG) and official PUBG announcements from Steam. Set the channels with `/canal`.
+
+### 💾 Data
+
+Time is stored in SQLite (`batbot.db`, path configurable with `DB_PATH`) and checkpointed every 2 minutes, so a crash loses almost nothing. Point `DB_PATH` to a persistent disk on your host. An old `user_progress.json` is imported automatically the first time.
 
 ### 🚀 Setup Instructions
 
@@ -93,7 +101,7 @@ Un bot de Discord con sistema de roles progresivos y seguimiento de tiempo acumu
 - **Monitoreo de Canales de Voz**: Rastrea la actividad del usuario en canales de voz específicos de PUBG
 - **Sistema de Roles Progresivos**: Asigna roles automáticamente basado en el tiempo de conexión acumulativo
 - **Seguimiento de Tiempo Acumulativo**: Guarda y acumula tiempo a través de reinicios y sesiones del bot
-- **Persistencia de Datos**: El progreso del usuario se guarda en formato JSON y persiste entre sesiones
+- **Persistencia de Datos**: El progreso del usuario se guarda en SQLite y persiste entre sesiones
 - **Comandos de Administrador**: Estadísticas, configuración y comandos de gestión
 - **Comandos de Usuario**: Verificar tiempo personal y reiniciar progreso
 - **Disponibilidad 24/7**: Desplegado en Bot-Hosting.net para operación continua
@@ -107,18 +115,26 @@ Un bot de Discord con sistema de roles progresivos y seguimiento de tiempo acumu
 | Murci-Veterano 🦇💪 | 8 horas | El veterano que ya domina el vuelo nocturno y reparte headshots como caramelos. |
 | Bat-Commander 🦇⚡ | 20 horas | El murciélago maestro, líder supremo de BatCompany, el que reparte headshots en la oscuridad. |
 
-### 🤖 Comandos
+### 🤖 Comandos (con `/`)
 
-#### Comandos de Usuario
-- `!mytime` - Verifica tu tiempo acumulado en canales de voz y rol actual
-- `!resettime` - Reinicia tu tiempo acumulado (requiere confirmación)
+#### Para todos
+- `/tiempo [usuario]` - Tiempo acumulado en voz, sesión actual y próximo rol
+- `/ranking [periodo]` - Top 10 por tiempo en voz: histórico, últimos 7 días o últimos 30 días
 
-#### Comandos de Administrador
-- `!voice_stats` - Muestra estadísticas de canales de voz para todos los usuarios
-- `!config` - Muestra la configuración actual del bot
-- `!roletest @usuario` - Prueba la asignación de roles para un usuario específico
-- `!scan` - Escanea y asigna roles a todos los usuarios actuales en canales de voz
-- `!history @usuario` - Muestra el historial de actividad para un usuario específico
+#### Para administradores
+- `/canal` - Elegí el canal de juegos gratis, novedades de PUBG y avisos de roles
+- `/estadisticas` - Estadísticas del bot y de la voz
+- `/configuracion` - Canales monitoreados y tiempos de cada rol
+- `/resettiempo @usuario` - Resetea el tiempo de un usuario
+- `/historial [cantidad]` - Actividad reciente
+
+### 🎁 Juegos gratis y novedades de PUBG
+
+Cada 30 minutos el bot publica los juegos gratis nuevos (Epic Games, Steam, GOG) y los anuncios oficiales de PUBG desde Steam. Los canales se eligen con `/canal`.
+
+### 💾 Datos
+
+El tiempo se guarda en SQLite (`batbot.db`, ruta configurable con `DB_PATH`) y se registra cada 2 minutos, así que si el bot se cae casi no se pierde nada. Apuntá `DB_PATH` a un disco persistente del hosting. Si existe un `user_progress.json` viejo, se importa solo la primera vez.
 
 ### 🔊 Canales de Voz Monitoreados
 
