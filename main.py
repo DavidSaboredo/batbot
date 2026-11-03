@@ -3,6 +3,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 import os
 import re
+import random
 import json
 import sqlite3
 import time
@@ -27,7 +28,10 @@ CHECKPOINT_SECONDS = 120
 FEEDS_MINUTES = 30
 
 # Canal de texto por defecto para juegos gratis y novedades (se puede cambiar con /canal)
-DEFAULT_CHANNELS = {"juegos": 1404895214266482821, "pubg": 1404895214266482821, "resumen": 1404895214266482821}
+DEFAULT_CHANNELS = {"juegos": 1404895214266482821, "pubg": 1404895214266482821, "resumen": 1404895214266482821, "comunidad": 1404895214266482821}
+
+# Rol que se le da cada semana a quien más estuvo en voz
+TOP_ROLE_NAME = "🔥 Más activo de la semana"
 
 # Argentina no tiene horario de verano: UTC-3 todo el año
 AR_TZ = timezone(timedelta(hours=-3))
@@ -119,6 +123,8 @@ def init_db():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_sessions_ended ON sessions (ended_at)")
         conn.execute("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
         conn.execute("CREATE TABLE IF NOT EXISTS seen (kind TEXT NOT NULL, item_id TEXT NOT NULL, PRIMARY KEY (kind, item_id))")
+        conn.execute("CREATE TABLE IF NOT EXISTS streaks (user_id INTEGER PRIMARY KEY, last_day TEXT NOT NULL, current INTEGER NOT NULL, best INTEGER NOT NULL)")
+        conn.execute("CREATE TABLE IF NOT EXISTS birthdays (user_id INTEGER PRIMARY KEY, day INTEGER NOT NULL, month INTEGER NOT NULL)")
     migrate_legacy_json()
 
 
@@ -185,6 +191,38 @@ def migrate_legacy_json():
             print(f"Error migrando {LEGACY_JSON}: {e}")
 
 
+def today_ar():
+    return datetime.now(AR_TZ).date()
+
+
+def update_streak(conn, user_id):
+    """Cuenta días seguidos con tiempo en voz (día argentino)."""
+    today = today_ar()
+    row = conn.execute("SELECT last_day, current, best FROM streaks WHERE user_id = ?", (user_id,)).fetchone()
+    if row is None:
+        conn.execute("INSERT INTO streaks (user_id, last_day, current, best) VALUES (?, ?, 1, 1)", (user_id, today.isoformat()))
+        return
+    last = datetime.strptime(row["last_day"], "%Y-%m-%d").date()
+    if last == today:
+        return
+    current = row["current"] + 1 if last == today - timedelta(days=1) else 1
+    conn.execute(
+        "UPDATE streaks SET last_day = ?, current = ?, best = ? WHERE user_id = ?",
+        (today.isoformat(), current, max(current, row["best"]), user_id),
+    )
+
+
+def get_streak(user_id):
+    """(racha actual, mejor racha). La actual vale 0 si ya pasó más de un día sin entrar."""
+    with db_connect() as conn:
+        row = conn.execute("SELECT last_day, current, best FROM streaks WHERE user_id = ?", (user_id,)).fetchone()
+    if row is None:
+        return 0, 0
+    last = datetime.strptime(row["last_day"], "%Y-%m-%d").date()
+    alive = last >= today_ar() - timedelta(days=1)
+    return (row["current"] if alive else 0), row["best"]
+
+
 def add_time(user_id, seconds):
     """Suma tiempo al total del usuario y lo registra como sesión. Devuelve el total nuevo."""
     if seconds <= 0:
@@ -196,6 +234,7 @@ def add_time(user_id, seconds):
             (user_id, seconds),
         )
         conn.execute("INSERT INTO sessions (user_id, ended_at, seconds) VALUES (?, ?, ?)", (user_id, time.time(), seconds))
+        update_streak(conn, user_id)
         return conn.execute("SELECT total_seconds FROM users WHERE user_id = ?", (user_id,)).fetchone()[0]
 
 
@@ -627,6 +666,7 @@ async def check_feeds():
     app_commands.Choice(name="Novedades de PUBG", value="pubg"),
     app_commands.Choice(name="Avisos de roles nuevos", value="roles"),
     app_commands.Choice(name="Resumen semanal y mensual", value="resumen"),
+    app_commands.Choice(name="Bienvenidas, cumpleaños y aniversarios", value="comunidad"),
 ])
 @app_commands.default_permissions(administrator=True)
 @app_commands.checks.has_permissions(administrator=True)
@@ -935,6 +975,7 @@ async def scheduled_jobs():
         if get_setting("last_weekly") != week_key:
             set_setting("last_weekly", week_key)
             for guild in bot.guilds:
+                await update_top_role(guild)
                 channel = get_configured_channel(guild, "resumen")
                 if channel:
                     try:
@@ -949,6 +990,14 @@ async def scheduled_jobs():
                 print("💾 Respaldo enviado por mensaje privado")
             except Exception as e:
                 print(f"⚠️ Error enviando el respaldo: {e}")
+
+    if now.hour >= 10 and get_setting("last_daily") != now.date().isoformat():
+        set_setting("last_daily", now.date().isoformat())
+        for guild in bot.guilds:
+            try:
+                await post_daily_greetings(guild, now)
+            except Exception as e:
+                print(f"⚠️ Error en cumpleaños y aniversarios: {e}")
 
     if now.day == 1 and now.hour >= 12:
         month_key = now.strftime("%Y-%m")
@@ -992,6 +1041,269 @@ async def resumen(interaction: discord.Interaction, tipo: app_commands.Choice[st
 async def respaldo(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
     await send_backup(lambda file: interaction.followup.send("💾 Respaldo de la base:", file=file, ephemeral=True))
+
+
+# ---------- Comunidad: rol semanal, bienvenida, cumpleaños, racha, squad ----------
+
+async def update_top_role(guild):
+    """Le da el rol de más activo a quien lideró los últimos 7 días y se lo saca a los demás."""
+    top = get_ranking(7 * 86400, limit=1)
+    if not top:
+        return
+    try:
+        role = discord.utils.get(guild.roles, name=TOP_ROLE_NAME)
+        if not role:
+            role = await guild.create_role(name=TOP_ROLE_NAME, color=discord.Color.red(), reason="Más activo de la semana")
+        winner = guild.get_member(top[0][0])
+        for member in list(role.members):
+            if not winner or member.id != winner.id:
+                await member.remove_roles(role, reason="Terminó la semana")
+        if winner and role not in winner.roles:
+            await winner.add_roles(role, reason="Más activo de la semana")
+    except Exception as e:
+        print(f"⚠️ No se pudo actualizar el rol de más activo: {e}")
+
+
+@bot.event
+async def on_member_join(member):
+    if member.bot:
+        return
+    channel = get_configured_channel(member.guild, "comunidad") or member.guild.system_channel
+    if not channel:
+        return
+    roles = " → ".join(r["name"] for r in ROLE_SYSTEM)
+    embed = discord.Embed(
+        title=f"🦇 ¡Bienvenido a {member.guild.name}!",
+        description=(
+            f"{member.mention}, qué bueno que estés acá.\n\n"
+            f"Pasá tiempo en los canales de voz y vas a ir ganando rangos solo:\n{roles}\n\n"
+            "Probá `/tiempo` para ver tus horas y `/buscarsquad` para armar equipo."
+        ),
+        color=discord.Color.gold(),
+    )
+    embed.set_thumbnail(url=member.display_avatar.url)
+    try:
+        await channel.send(embed=embed)
+    except Exception as e:
+        print(f"⚠️ No se pudo dar la bienvenida: {e}")
+
+
+async def post_daily_greetings(guild, now):
+    channel = get_configured_channel(guild, "comunidad")
+    if not channel:
+        return
+    lines = []
+    with db_connect() as conn:
+        rows = conn.execute("SELECT user_id FROM birthdays WHERE day = ? AND month = ?", (now.day, now.month)).fetchall()
+    for r in rows:
+        member = guild.get_member(r["user_id"])
+        if member:
+            lines.append(f"🎂 ¡Hoy cumple años {member.mention}! Que lo pase genial 🦇🎉")
+    for member in guild.members:
+        if member.bot or not member.joined_at:
+            continue
+        joined = member.joined_at.astimezone(AR_TZ)
+        years = now.year - joined.year
+        if years >= 1 and (joined.day, joined.month) == (now.day, now.month):
+            lines.append(f"🦇 {member.mention} cumple {years} {'año' if years == 1 else 'años'} en la BatCompany. ¡Gracias por quedarte!")
+    if lines:
+        await channel.send("\n".join(lines))
+
+
+@bot.tree.command(name="cumple", description="Guardá tu cumpleaños para que el bot te salude")
+@app_commands.describe(dia="Día (1 a 31)", mes="Mes (1 a 12)")
+async def cumple(interaction: discord.Interaction, dia: app_commands.Range[int, 1, 31], mes: app_commands.Range[int, 1, 12]):
+    try:
+        datetime(2024, mes, dia)  # valida que el día exista en ese mes
+    except ValueError:
+        await interaction.response.send_message("❌ Esa fecha no existe.", ephemeral=True)
+        return
+    with db_connect() as conn:
+        conn.execute(
+            "INSERT INTO birthdays (user_id, day, month) VALUES (?, ?, ?) "
+            "ON CONFLICT(user_id) DO UPDATE SET day = excluded.day, month = excluded.month",
+            (interaction.user.id, dia, mes),
+        )
+    await interaction.response.send_message(f"🎂 Listo, anoté tu cumpleaños: {dia}/{mes}.", ephemeral=True)
+
+
+@bot.tree.command(name="racha", description="Mirá tu racha de días seguidos en voz")
+@app_commands.describe(usuario="Otro usuario (opcional)")
+async def racha(interaction: discord.Interaction, usuario: discord.Member = None):
+    target = usuario or interaction.user
+    current, best = get_streak(target.id)
+    if best == 0:
+        await interaction.response.send_message(f"📭 {target.display_name} todavía no tiene racha.")
+        return
+    fire = "🔥" if current >= 3 else "📅"
+    await interaction.response.send_message(
+        f"{fire} **{target.display_name}** — racha actual: **{current}** {'día' if current == 1 else 'días'} seguidos · mejor racha: **{best}**"
+    )
+
+
+class SquadView(discord.ui.View):
+    def __init__(self, host, game, size):
+        super().__init__(timeout=2 * 3600)
+        self.game = game
+        self.size = size
+        self.members = [host]
+        self.message = None
+
+    def build_embed(self):
+        missing = self.size - len(self.members)
+        names = "\n".join(f"• {m.display_name}" for m in self.members)
+        if missing > 0:
+            title = f"🎮 {self.game}: faltan {missing} para completar el squad de {self.size}"
+            color = discord.Color.orange()
+        else:
+            title = f"✅ {self.game}: ¡squad completo!"
+            color = discord.Color.green()
+        return discord.Embed(title=title, description=names, color=color)
+
+    async def refresh(self, interaction):
+        full = len(self.members) >= self.size
+        if full:
+            for item in self.children:
+                item.disabled = True
+        await interaction.response.edit_message(embed=self.build_embed(), view=self)
+        if full:
+            await interaction.followup.send("🦇 ¡Squad completo! " + " ".join(m.mention for m in self.members))
+            self.stop()
+
+    @discord.ui.button(label="Me sumo", style=discord.ButtonStyle.success, emoji="🙋")
+    async def join(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user in self.members:
+            await interaction.response.send_message("Ya estás en el squad.", ephemeral=True)
+            return
+        self.members.append(interaction.user)
+        await self.refresh(interaction)
+
+    @discord.ui.button(label="Salir", style=discord.ButtonStyle.secondary)
+    async def leave(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user not in self.members:
+            await interaction.response.send_message("No estás en el squad.", ephemeral=True)
+            return
+        self.members.remove(interaction.user)
+        if not self.members:
+            for item in self.children:
+                item.disabled = True
+            await interaction.response.edit_message(content="❌ Squad cancelado.", embed=None, view=self)
+            self.stop()
+            return
+        await self.refresh(interaction)
+
+    async def on_timeout(self):
+        for item in self.children:
+            item.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except discord.HTTPException:
+                pass
+
+
+@bot.tree.command(name="buscarsquad", description="Armá un squad: la gente se suma con un botón")
+@app_commands.describe(juego="A qué van a jugar", tamano="Cuántos son en total (por defecto 4)")
+async def buscarsquad(interaction: discord.Interaction, juego: str = "PUBG", tamano: app_commands.Range[int, 2, 10] = 4):
+    view = SquadView(interaction.user, juego[:40], tamano)
+    await interaction.response.send_message(embed=view.build_embed(), view=view)
+    view.message = await interaction.original_response()
+
+
+# ---------- PUBG: llaves, mapas, drop y tips ----------
+
+LLAVES = {
+    "Erangel": (
+        "Hay unas 15 salas secretas. La llave es botín al azar en todo el mapa y cada llave abre una sola sala (se destruye al usarla).",
+        "https://www.ggrecon.com/guides/pubg-erangel-secret-rooms-keys/",
+    ),
+    "Miramar": (
+        "Las llaves caen al azar en edificios y complejos del mapa. Mirá el mapa interactivo con la ubicación de las salas.",
+        "https://www.gamemaps.net/game/pubg/maps/pubg_miramar_map/categories/648eea82278149095c6c075b",
+    ),
+    "Taego": (
+        "Entre 12 y 15 salas secretas (las guías no coinciden). Se reformaron en la actualización 42.2.",
+        "https://www.ggrecon.com/guides/pubg-taego-secret-rooms-keys/",
+    ),
+    "Rondo": (
+        "Usa puertas de seguridad con tarjeta de acceso. Se reformaron en la actualización 42.2.",
+        "https://www.playnews.gg/en/guides/pubg-battlegrounds-the-guide-to-secret-rooms-on-taego-and-rondo-after-42-2-keys-jars-loot",
+    ),
+    "Vikendi": (
+        "Usa llaves de seguridad: la mejor forma de conseguirlas es abrir las cajas amarillas de suministro dentro de los Lab Camps.",
+        "https://www.ggrecon.com/guides/pubg-vikendi-security-rooms/",
+    ),
+}
+
+
+@bot.tree.command(name="llaves", description="Salas secretas de PUBG: cómo conseguir la llave y dónde mirar")
+@app_commands.describe(mapa="Mapa")
+@app_commands.choices(mapa=[app_commands.Choice(name=n, value=n) for n in LLAVES])
+async def llaves(interaction: discord.Interaction, mapa: app_commands.Choice[str]):
+    text, link = LLAVES[mapa.value]
+    embed = discord.Embed(title=f"🔑 Salas secretas — {mapa.value}", description=text, color=discord.Color.dark_gold())
+    embed.add_field(name="🗺️ Guía con ubicaciones", value=f"[Abrir guía]({link})", inline=False)
+    embed.set_footer(text="Las llaves aparecen solo en partidas normales (no en ranked). Datos de guías de la comunidad: pueden cambiar con los parches.")
+    await interaction.response.send_message(embed=embed)
+
+
+@bot.tree.command(name="mapas", description="Mapas de PUBG en juego")
+async def mapas(interaction: discord.Interaction):
+    embed = discord.Embed(title="🗺️ Mapas de PUBG", color=discord.Color.blue())
+    embed.add_field(name="🏅 Ranked", value="Erangel, Miramar, Taego y Rondo (25% cada uno, según la actualización 43.2).", inline=False)
+    embed.add_field(name="🎯 Partidas normales", value="Erangel es fijo; el resto rota por semana. Mirá la lista de mapas dentro del juego.", inline=False)
+    embed.set_footer(text="La rotación la define Krafton y cambia con los parches.")
+    await interaction.response.send_message(embed=embed)
+
+
+DROP_SPOTS = {
+    "Erangel": [
+        ("Pochinki", "🔥 alto riesgo"), ("School", "🔥 alto riesgo"), ("Georgopol", "🔥 alto riesgo"),
+        ("Military Base", "🔥 alto riesgo"), ("Rozhok", "🔥 alto riesgo"), ("Yasnaya Polyana", "🟠 medio"),
+        ("Novorepnoye", "🟠 medio"), ("Primorsk", "🟠 medio"), ("Mylta", "🟢 tranquilo"),
+        ("Kameshki", "🟢 tranquilo"), ("Lipovka", "🟢 tranquilo"), ("Zharki", "🟢 tranquilo"),
+        ("Severny", "🟢 tranquilo"), ("Stalber", "🟢 tranquilo"),
+    ],
+    "Miramar": [
+        ("Pecado", "🔥 alto riesgo"), ("Hacienda del Patrón", "🔥 alto riesgo"), ("Los Leones", "🔥 alto riesgo"),
+        ("El Pozo", "🟠 medio"), ("San Martín", "🟠 medio"), ("Monte Nuevo", "🟢 tranquilo"),
+        ("Los Higos", "🟢 tranquilo"), ("Impala", "🟢 tranquilo"), ("Valle del Mar", "🟢 tranquilo"),
+        ("Cruz del Valle", "🟢 tranquilo"),
+    ],
+    "Vikendi": [
+        ("Castle", "🔥 alto riesgo"), ("Cosmodrome", "🔥 alto riesgo"), ("Dino Park", "🟠 medio"),
+        ("Podvosto", "🟠 medio"), ("Villa", "🟠 medio"), ("Trevno", "🟢 tranquilo"),
+        ("Goroka", "🟢 tranquilo"), ("Port", "🟢 tranquilo"),
+    ],
+}
+
+
+@bot.tree.command(name="drop", description="Te sugiere dónde tirarte en PUBG")
+@app_commands.describe(mapa="Mapa")
+@app_commands.choices(mapa=[app_commands.Choice(name=n, value=n) for n in DROP_SPOTS])
+async def drop(interaction: discord.Interaction, mapa: app_commands.Choice[str]):
+    spot, risk = random.choice(DROP_SPOTS[mapa.value])
+    await interaction.response.send_message(f"🪂 **{mapa.value}** → tirate en **{spot}** ({risk})")
+
+
+TIPS = [
+    "Escuchá siempre con auriculares: los pasos te avisan de dónde vienen antes de ver al enemigo.",
+    "Antes de cruzar un campo abierto, fijate si hay cobertura (rocas, árboles, autos) cada 20 metros.",
+    "Llevá al menos un humo por compañero: sirve para revivir y para cruzar zonas expuestas.",
+    "No te quedes saqueando con un enemigo cerca: primero cubrite, después lootear.",
+    "Mirá el mapa seguido: la zona azul no perdona a quien se queda lejos.",
+    "Comunicá posiciones con referencias claras (\"edificio rojo al norte\") en vez de \"ahí\".",
+    "Ajustá la sensibilidad con calma en el campo de entrenamiento hasta que apuntar te resulte cómodo.",
+    "Si el equipo está dividido, juntense antes del círculo final: pelear 4 contra 1 gana partidas.",
+    "Los vehículos hacen ruido: usalos para cruzar, no para llegar justo al lado del enemigo.",
+    "Revivir en el medio del fuego casi siempre sale mal: primero tirá humo o eliminá la amenaza.",
+    "Cambiá de posición después de disparar: el que se queda quieto es el que cae.",
+]
+
+
+@bot.tree.command(name="tips", description="Un consejo rápido para mejorar en PUBG")
+async def tips(interaction: discord.Interaction):
+    await interaction.response.send_message(f"💡 {random.choice(TIPS)}")
 
 
 @bot.tree.error
